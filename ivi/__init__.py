@@ -53,7 +53,10 @@ __all__ = [
         "lecroy",
         "rigol",
         "tektronix",
-        "testequity"]
+        "testequity",
+        
+        # Custom Implementation
+        'tdklambda']
 
 from .ivi import *
 from . import *
