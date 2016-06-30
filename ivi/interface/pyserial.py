@@ -28,6 +28,7 @@ import serial
 import time
 import re
 
+
 def parse_visa_resource_string(resource_string):
     # valid resource strings:
     # ASRL1::INSTR
@@ -38,20 +39,22 @@ def parse_visa_resource_string(resource_string):
     # ASRL::/dev/ttyUSB0,9600::INSTR
     # ASRL::/dev/ttyUSB0,9600,8n1::INSTR
     m = re.match('^(?P<prefix>(?P<type>ASRL)\d*)(::(?P<arg1>[^\s:]+))?(::(?P<suffix>INSTR))$',
-            resource_string, re.I)
+                 resource_string, re.I)
 
     if m is not None:
         return dict(
-                type = m.group('type').upper(),
-                prefix = m.group('prefix'),
-                arg1 = m.group('arg1'),
-                suffix = m.group('suffix'),
+            type=m.group('type').upper(),
+            prefix=m.group('prefix'),
+            arg1=m.group('arg1'),
+            suffix=m.group('suffix'),
         )
+
 
 class SerialInstrument:
     "Serial instrument interface client"
-    def __init__(self, port = None, baudrate=9600, bytesize=8, paritymode=0, stopbits=1, timeout=None,
-                xonxoff=False, rtscts=False, dsrdtr=False):
+
+    def __init__(self, port=None, baudrate=9600, bytesize=8, paritymode=0, stopbits=1, timeout=None,
+                 xonxoff=True, rtscts=False, dsrdtr=False):
 
         if port.upper().startswith("ASRL") and '::' in port:
             res = parse_visa_resource_string(port)
@@ -91,11 +94,11 @@ class SerialInstrument:
         self.message_delay = 0
 
         self.update_settings()
-    
+
     def update_settings(self):
-        
+
         self.serial.baudrate = self.baudrate
-        
+
         if self.bytesize == 5:
             self.serial.bytesize = serial.FIVEBITS
         elif self.bytesize == 6:
@@ -104,7 +107,7 @@ class SerialInstrument:
             self.serial.bytesize = serial.SEVENBITS
         else:
             self.serial.bytesize = serial.EIGHTBITS
-        
+
         if self.paritymode == 1:
             self.serial.paritymode = serial.PARITY_ODD
         elif self.paritymode == 2:
@@ -115,44 +118,44 @@ class SerialInstrument:
             self.serial.paritymode = serial.PARITY_SPACE
         else:
             self.serial.paritymode = serial.PARITY_NONE
-        
+
         if self.stopbits == 1.5:
             self.serial.stopbits = serial.STOPBITS_ONE_POINT_FIVE
         elif self.stopbits == 2:
             self.serial.stopbits = serial.STOPBITS_TWO
         else:
             self.serial.stopbits = serial.STOPBITS_ONE
-        
+
         self.serial.timeout = self.timeout
         self.serial.xonxoff = self.xonxoff
         self.serial.rtscts = self.rtscts
         self.serial.dsrdtr = self.dsrdtr
-        
+
         if self.dsrdtr:
             self.wait_dsr = True
             self.message_delay = 0.1
-    
+
     def write_raw(self, data):
         "Write binary data to instrument"
-        
+
         if self.term_char is not None:
             data += str(self.term_char).encode('utf-8')[0:1]
-        
+
         self.serial.write(data)
-        
+
         if self.message_delay > 0:
             time.sleep(self.message_delay)
-        
+
         if self.wait_dsr:
             while not self.serial.getDSR():
                 time.sleep(0.01)
-    
+
     def read_raw(self, num=-1):
         "Read binary data from instrument"
-        
+
         data = b''
         term_char = str(self.term_char).encode('utf-8')[0:1]
-        
+
         while True:
             c = self.serial.read(1)
             data += c
@@ -161,15 +164,15 @@ class SerialInstrument:
                 break
             if num == 0:
                 break
-            
+
         return data
-    
+
     def ask_raw(self, data, num=-1):
         "Write then read binary data"
         self.write_raw(data)
         return self.read_raw(num)
-    
-    def write(self, message, encoding = 'utf-8'):
+
+    def write(self, message, encoding='utf-8'):
         "Write string to instrument"
         if type(message) is tuple or type(message) is list:
             # recursive call for a list of commands
@@ -178,12 +181,12 @@ class SerialInstrument:
             return
 
         self.write_raw(str(message).encode(encoding))
-    
-    def read(self, num=-1, encoding = 'utf-8'):
+
+    def read(self, num=-1, encoding='utf-8'):
         "Read string from instrument"
         return self.read_raw(num).decode(encoding).rstrip('\r\n')
-    
-    def ask(self, message, num=-1, encoding = 'utf-8'):
+
+    def ask(self, message, num=-1, encoding='utf-8'):
         "Write then read string"
         if type(message) is tuple or type(message) is list:
             # recursive call for a list of commands
@@ -194,32 +197,31 @@ class SerialInstrument:
 
         self.write(message, encoding)
         return self.read(num, encoding)
-    
+
     def read_stb(self):
         "Read status byte"
         raise NotImplementedError()
-    
+
     def trigger(self):
         "Send trigger command"
         self.write("*TRG")
-    
+
     def clear(self):
         "Send clear command"
         self.write("*CLS")
-    
+
     def remote(self):
         "Send remote command"
         raise NotImplementedError()
-    
+
     def local(self):
         "Send local command"
         raise NotImplementedError()
-    
+
     def lock(self):
         "Send lock command"
         raise NotImplementedError()
-    
+
     def unlock(self):
         "Send unlock command"
         raise NotImplementedError()
-
