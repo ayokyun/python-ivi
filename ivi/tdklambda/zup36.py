@@ -49,7 +49,7 @@ class ZUP36(ivi.Driver, dcpwr.Base, dcpwr.Measurement):
         value = self._ask(':CUR!;', encoding='ascii')
         return float(value[2:])
 
-    def _set_output_current_limit():
+    def _set_output_current_limit(self, index, value):
         index = ivi.get_index(self._output_name, index)
         value = float(value)
         if value < 0 or value > self._output_spec[index]['current_max']:
@@ -65,7 +65,7 @@ class ZUP36(ivi.Driver, dcpwr.Base, dcpwr.Measurement):
         index = ivi.get_index(self._output_name, index)
         return self._output_current_limit_behavior[index]
 
-    def _set_output_current_limit_behavior():
+    def _set_output_current_limit_behavior(self, index, value):
         index = ivi.get_index(self._output_name, index)
         if value not in CurrentLimitBehavior:
             raise ivi.ValueNotSupportedException()
@@ -87,16 +87,10 @@ class ZUP36(ivi.Driver, dcpwr.Base, dcpwr.Measurement):
         self._write(':OUT{0};'.format(1 if value else 0), encoding='ascii')
         sleep(1)
 
-    def _get_output_ovp_enabled():
-        pass
-
-    def _set_output_ovp_enabled():
-        pass
-
     def _get_output_ovp_limit(self, index):
         index = ivi.get_index(self._output_name, index)
 
-        self._write(':ADR%02d;' % (index + 1))
+        self._write(':ADR%02d;' % (index + 1), encoding='ascii')
 
         value = self._ask(':OVP?;', encoding='ascii')
         return float(value[2:])
