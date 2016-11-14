@@ -15,7 +15,9 @@ class ZUP36(ivi.Driver, dcpwr.Base, dcpwr.Measurement):
     def __init__(self, *args, **kwargs):
         super(ZUP36, self).__init__(*args, **kwargs)
 
+        self._output_spec[0]['ovp_max'] = 36.0
         self._output_spec[0]['voltage_max'] = 36.0
+        self._output_spec[0]['current_max'] = 6.0
 
     def _set_output_voltage_level(self, index, value):
         index = ivi.get_index(self._output_name, index)
