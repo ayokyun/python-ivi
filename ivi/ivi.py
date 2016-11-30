@@ -2020,7 +2020,7 @@ class Driver(DriverOperation, DriverIdentity, DriverUtility):
             self._write_raw(data)
             return self._read_raw(num)
 
-    def _write(self, data, encoding='utf-8'):
+    def _write(self, data, encoding='ascii'):
         "Write string to instrument"
         print self._interface
         if self._driver_operation_simulate:
@@ -2040,7 +2040,7 @@ class Driver(DriverOperation, DriverIdentity, DriverUtility):
 
             self._write_raw(str(data).encode(encoding))
 
-    def _read(self, num=-1, encoding='utf-8'):
+    def _read(self, num=-1, encoding='ascii'):
         "Read string from instrument"
         if self._driver_operation_simulate:
             print("[simulating] Read (%s)" % encoding)
@@ -2052,7 +2052,7 @@ class Driver(DriverOperation, DriverIdentity, DriverUtility):
         except AttributeError:
             return self._read_raw(num).decode(encoding).rstrip('\r\n')
 
-    def _ask(self, data, num=-1, encoding='utf-8'):
+    def _ask(self, data, num=-1, encoding='ascii'):
         "Write then read string"
         if self._driver_operation_simulate:
             print("[simulating] Ask (%s) '%s'" % (encoding, data))

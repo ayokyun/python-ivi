@@ -114,5 +114,7 @@ def _main():
     psu.outputs[0].voltage_level = 5.0
     print psu.outputs[0].voltage_level
 
+    psu.close()
+
 if __name__ == '__main__':
     _main()

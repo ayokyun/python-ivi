@@ -54,7 +54,7 @@ class SerialInstrument:
     "Serial instrument interface client"
 
     def __init__(self, port=None, baudrate=9600, bytesize=8, paritymode=0, stopbits=1, timeout=None,
-                 xonxoff=True, rtscts=False, dsrdtr=False):
+                 xonxoff=False, rtscts=False, dsrdtr=False):
 
         if port.upper().startswith("ASRL") and '::' in port:
             res = parse_visa_resource_string(port)
@@ -91,7 +91,7 @@ class SerialInstrument:
         self.dsrdtr = dsrdtr
 
         self.wait_dsr = False
-        self.message_delay = 0
+        self.message_delay = 1.0
 
         self.update_settings()
 
@@ -174,16 +174,19 @@ class SerialInstrument:
 
     def write(self, message, encoding='utf-8'):
         "Write string to instrument"
+        
         if type(message) is tuple or type(message) is list:
             # recursive call for a list of commands
             for message_i in message:
                 self.write(message_i, encoding)
+                time.sleep(self.message_delay)
             return
 
         self.write_raw(str(message).encode(encoding))
 
     def read(self, num=-1, encoding='utf-8'):
         "Read string from instrument"
+        
         return self.read_raw(num).decode(encoding).rstrip('\r\n')
 
     def ask(self, message, num=-1, encoding='utf-8'):
@@ -194,7 +197,7 @@ class SerialInstrument:
             for message_i in message:
                 val.append(self.ask(message_i, num, encoding))
             return val
-
+            
         self.write(message, encoding)
         return self.read(num, encoding)
 
