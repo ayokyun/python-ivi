@@ -2013,7 +2013,6 @@ class Driver(DriverOperation, DriverIdentity, DriverUtility):
         if not self._initialized or self._interface is None:
             raise NotInitializedException()
         try:
-            print("[debugging] Call to ask_raw" + data)
             return self._interface.ask_raw(data, num)
         except AttributeError:
             # if interface does not implement ask_raw, emulate it
@@ -2022,14 +2021,12 @@ class Driver(DriverOperation, DriverIdentity, DriverUtility):
 
     def _write(self, data, encoding='ascii'):
         "Write string to instrument"
-        print self._interface
         if self._driver_operation_simulate:
             print("[simulating] Write (%s) '%s'" % (encoding, data))
             return
         if not self._initialized or self._interface is None:
             raise NotInitializedException()
         try:
-            print("[debugging] Write (%s) '%s'" % (encoding, data))
             self._interface.write(data, encoding)
         except AttributeError:
             if type(data) is tuple or type(data) is list:

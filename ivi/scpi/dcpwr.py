@@ -49,7 +49,8 @@ class Base(common.IdnCommand, common.ErrorQuery, common.Reset, common.SelfTest,
 
         self._self_test_delay = 5
 
-        self._output_count = 1
+        self._output_count = 2
+        self._driver_operation_cache = False
 
         self._output_spec = [
             {
@@ -57,9 +58,9 @@ class Base(common.IdnCommand, common.ErrorQuery, common.Reset, common.SelfTest,
                     'P8V': (9.0, 20.0),
                     'P20V': (21.0, 10.0)
                 },
-                'ovp_max': 22.0,
-                'voltage_max': 9.0,
-                'current_max': 20.0
+                'ovp_max': 60.0,
+                'voltage_max': 60.0,
+                'current_max': 14.0
             }
         ]
 
