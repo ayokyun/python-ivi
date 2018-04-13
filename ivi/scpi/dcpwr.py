@@ -2,7 +2,7 @@
 
 Python Interchangeable Virtual Instrument Library
 
-Copyright (c) 2012-2014 Alex Forencich
+Copyright (c) 2012-2017 Alex Forencich
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -195,7 +195,7 @@ class Base(common.IdnCommand, common.ErrorQuery, common.Reset, common.SelfTest,
         if not self._driver_operation_simulate and not self._get_cache_valid(index=index):
             if self._output_count > 1:
                 self._write("instrument:nselect %d" % (index+1))
-            self._output_enabled[index] = self._ask("output?") == self._get_bool_str(True)
+            self._output_enabled[index] = self._ask("output:state?") == self._get_bool_str(True)
             self._set_cache_valid(index=index)
         return self._output_enabled[index]
     
@@ -205,7 +205,7 @@ class Base(common.IdnCommand, common.ErrorQuery, common.Reset, common.SelfTest,
         if not self._driver_operation_simulate:
             if self._output_count > 1:
                 self._write("instrument:nselect %d" % (index+1))
-            self._write("output %s" % self._get_bool_str(value))
+            self._write("output:state %s" % self._get_bool_str(value))
         self._output_enabled[index] = value
         for k in range(self._output_count):
             self._set_cache_valid(valid=False,index=k)
@@ -242,8 +242,12 @@ class Base(common.IdnCommand, common.ErrorQuery, common.Reset, common.SelfTest,
     def _set_output_ovp_limit(self, index, value):
         index = ivi.get_index(self._output_name, index)
         value = float(value)
-        if value < 0 or value > self._output_spec[index]['ovp_max']:
-            raise ivi.OutOfRangeException()
+        if self._output_spec[index]['ovp_max'] >= 0:
+            if value < 0 or value > self._output_spec[index]['ovp_max']:
+                raise ivi.OutOfRangeException()
+        else:
+            if value > 0 or value < self._output_spec[index]['ovp_max']:
+                raise ivi.OutOfRangeException()
         if not self._driver_operation_simulate:
             if self._output_count > 1:
                 self._write("instrument:nselect %d" % (index+1))
@@ -263,8 +267,12 @@ class Base(common.IdnCommand, common.ErrorQuery, common.Reset, common.SelfTest,
     def _set_output_voltage_level(self, index, value):
         index = ivi.get_index(self._output_name, index)
         value = float(value)
-        if value < 0 or value > self._output_spec[index]['voltage_max']:
-            raise ivi.OutOfRangeException()
+        if self._output_spec[index]['voltage_max'] >= 0:
+            if value < 0 or value > self._output_spec[index]['voltage_max']:
+                raise ivi.OutOfRangeException()
+        else:
+            if value > 0 or value < self._output_spec[index]['voltage_max']:
+                raise ivi.OutOfRangeException()
         if not self._driver_operation_simulate:
             if self._output_count > 1:
                 self._write("instrument:nselect %d" % (index+1))
@@ -295,8 +303,12 @@ class Base(common.IdnCommand, common.ErrorQuery, common.Reset, common.SelfTest,
     
     def _output_query_current_limit_max(self, index, voltage_level):
         index = ivi.get_index(self._output_name, index)
-        if voltage_level < 0 or voltage_level > self._output_spec[index]['voltage_max']:
-            raise ivi.OutOfRangeException()
+        if self._output_spec[index]['voltage_max'] >= 0:
+            if voltage_level < 0 or voltage_level > self._output_spec[index]['voltage_max']:
+                raise ivi.OutOfRangeException()
+        else:
+            if voltage_level > 0 or voltage_level < self._output_spec[index]['voltage_max']:
+                raise ivi.OutOfRangeException()
         return self._output_spec[index]['current_max']
     
     def _output_query_voltage_level_max(self, index, current_limit):
@@ -443,8 +455,12 @@ class Trigger(dcpwr.Trigger):
     def _set_output_triggered_voltage_level(self, index, value):
         index = ivi.get_index(self._output_name, index)
         value = float(value)
-        if value < 0 or value > self._output_spec[index]['voltage_max']:
-            raise ivi.OutOfRangeException()
+        if self._output_spec[index]['voltage_max'] >= 0:
+            if value < 0 or value > self._output_spec[index]['voltage_max']:
+                raise ivi.OutOfRangeException()
+        else:
+            if value > 0 or value < self._output_spec[index]['voltage_max']:
+                raise ivi.OutOfRangeException()
         if not self._driver_operation_simulate:
             if self._output_count > 1:
                 self._write("instrument:nselect %d" % (index+1))
