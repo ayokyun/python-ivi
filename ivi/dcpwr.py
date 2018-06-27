@@ -2,7 +2,7 @@
 
 Python Interchangeable Virtual Instrument Library
 
-Copyright (c) 2012-2014 Alex Forencich
+Copyright (c) 2012-2017 Alex Forencich
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -37,11 +37,14 @@ MeasurementType = set(['current', 'voltage'])
 def get_range(range_list, offset, val):
     l = list()
     for i in range_list:
-        l.append((i, abs(range_list[i][offset])))
+        if offset is None:
+            l.append((i, abs(range_list[i])))
+        else:
+            l.append((i, abs(range_list[i][offset])))
     l.sort(key=lambda x: x[1], reverse=True)
     k = None
     for i in range(len(l)):
-        if l[i][1] >= val:
+        if l[i][1] >= abs(val):
             k = l[i][0]
     return k
 
@@ -341,8 +344,12 @@ class Base(ivi.IviContainer):
     def _set_output_ovp_limit(self, index, value):
         index = ivi.get_index(self._output_name, index)
         value = float(value)
-        if value < 0 or value > self._output_spec[index]['ovp_max']:
-            raise ivi.OutOfRangeException()
+        if self._output_spec[index]['ovp_max'] >= 0:
+            if voltage_level < 0 or voltage_level > self._output_spec[index]['ovp_max']:
+                raise ivi.OutOfRangeException()
+        else:
+            if voltage_level > 0 or voltage_level < self._output_spec[index]['ovp_max']:
+                raise ivi.OutOfRangeException()
         self._output_ovp_limit[index] = value
 
     def _get_output_voltage_level(self, index):
@@ -352,8 +359,12 @@ class Base(ivi.IviContainer):
     def _set_output_voltage_level(self, index, value):
         index = ivi.get_index(self._output_name, index)
         value = float(value)
-        if value < 0 or value > self._output_spec[index]['voltage_max']:
-            raise ivi.OutOfRangeException()
+        if self._output_spec[index]['voltage_max'] >= 0:
+            if voltage_level < 0 or voltage_level > self._output_spec[index]['voltage_max']:
+                raise ivi.OutOfRangeException()
+        else:
+            if voltage_level > 0 or voltage_level < self._output_spec[index]['voltage_max']:
+                raise ivi.OutOfRangeException()
         self._output_voltage_level[index] = value
 
     def _get_output_name(self, index):
@@ -386,8 +397,12 @@ class Base(ivi.IviContainer):
 
     def _output_query_current_limit_max(self, index, voltage_level):
         index = ivi.get_index(self._output_name, index)
-        if voltage_level < 0 or voltage_level > self._output_spec[index]['voltage_max']:
-            raise ivi.OutOfRangeException()
+        if self._output_spec[index]['voltage_max'] >= 0:
+            if voltage_level < 0 or voltage_level > self._output_spec[index]['voltage_max']:
+                raise ivi.OutOfRangeException()
+        else:
+            if voltage_level > 0 or voltage_level < self._output_spec[index]['voltage_max']:
+                raise ivi.OutOfRangeException()
         return self._output_spec[index]['current_max']
 
     def _output_query_voltage_level_max(self, index, current_limit):
@@ -513,6 +528,8 @@ class Trigger(ivi.IviContainer):
     def _set_output_triggered_current_limit(self, index, value):
         index = ivi.get_index(self._output_name, index)
         value = float(value)
+        if value < 0 or value > self._output_spec[index]['current_max']:
+            raise ivi.OutOfRangeException()
         self._output_triggered_current_limit[index] = value
 
     def _get_output_triggered_voltage_level(self, index):
@@ -522,6 +539,12 @@ class Trigger(ivi.IviContainer):
     def _set_output_triggered_voltage_level(self, index, value):
         index = ivi.get_index(self._output_name, index)
         value = float(value)
+        if self._output_spec[index]['voltage_max'] >= 0:
+            if value < 0 or value > self._output_spec[index]['voltage_max']:
+                raise ivi.OutOfRangeException()
+        else:
+            if value > 0 or value < self._output_spec[index]['voltage_max']:
+                raise ivi.OutOfRangeException()
         self._output_triggered_voltage_level[index] = value
 
     def _trigger_abort(self):

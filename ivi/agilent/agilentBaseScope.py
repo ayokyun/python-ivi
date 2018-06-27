@@ -2,7 +2,7 @@
 
 Python Interchangeable Virtual Instrument Library
 
-Copyright (c) 2012-2014 Alex Forencich
+Copyright (c) 2012-2017 Alex Forencich
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -24,8 +24,9 @@ THE SOFTWARE.
 
 """
 
+import array
+import sys
 import time
-import struct
 
 from .. import ivi
 from .. import scope
@@ -156,6 +157,7 @@ TimebaseReferenceMapping = {
         'left': 'left',
         'center': 'cent',
         'right': 'righ'}
+TriggerModifierMapping = {'none': 'normal', 'auto': 'auto'}
 
 class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.common.Reset,
                        scpi.common.SelfTest, scpi.common.Memory,
@@ -163,7 +165,7 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
                        scope.GlitchTrigger, scope.WidthTrigger, scope.AcLineTrigger,
                        scope.WaveformMeasurement, scope.MinMaxWaveform,
                        scope.ContinuousAcquisition, scope.AverageAcquisition,
-                       scope.SampleMode, scope.AutoSetup,
+                       scope.SampleMode, scope.TriggerModifier, scope.AutoSetup,
                        extra.common.SystemSetup, extra.common.Screenshot,
                        ivi.Driver):
     "Agilent generic IVI oscilloscope driver"
@@ -178,6 +180,7 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
         self._channel_label = list()
         self._channel_probe_skew = list()
         self._channel_scale = list()
+        self._channel_trigger_level = list()
         self._channel_invert = list()
         self._channel_probe_id = list()
         self._channel_bw_limit = list()
@@ -343,6 +346,13 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
                         Specifies the vertical scale, or units per division, of the channel.  Units
                         are volts.
                         """))
+        self._add_property('channels[].trigger_level',
+                        self._get_channel_trigger_level,
+                        self._set_channel_trigger_level,
+                        None,
+                        ivi.Doc("""
+                        Specifies the trigger level of the channel.  Units are volts.
+                        """))
         self._add_property('timebase.mode',
                         self._get_timebase_mode,
                         self._set_timebase_mode,
@@ -500,6 +510,7 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
         self._channel_invert = list()
         self._channel_probe_id = list()
         self._channel_scale = list()
+        self._channel_trigger_level = list()
         self._channel_bw_limit = list()
         
         self._analog_channel_name = list()
@@ -509,6 +520,7 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
             self._analog_channel_name.append("channel%d" % (i+1))
             self._channel_probe_skew.append(0)
             self._channel_scale.append(1.0)
+            self._channel_trigger_level.append(0.0)
             self._channel_invert.append(False)
             self._channel_probe_id.append("NONE")
             self._channel_bw_limit.append(False)
@@ -566,8 +578,11 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
         
         self._write(":hardcopy:inksaver %d" % int(bool(invert)))
         self._write(":display:data? %s" % format)
-        
-        return self._read_ieee_block()
+
+        scr = self._read_ieee_block()
+        self._read_raw() # flush buffer
+
+        return scr
     
     def _acquisition_segmented_analyze(self):
         if not self._driver_operation_simulate:
@@ -651,6 +666,7 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
             self._write(":timebase:position %e" % value)
         self._timebase_position = value
         self._set_cache_valid()
+        self._set_cache_valid(False, 'timebase_window_position')
         
     def _get_timebase_range(self):
         if not self._driver_operation_simulate and not self._get_cache_valid():
@@ -668,6 +684,8 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
         self._timebase_scale = value / self._horizontal_divisions
         self._set_cache_valid()
         self._set_cache_valid(True, 'timebase_scale')
+        self._set_cache_valid(False, 'timebase_window_scale')
+        self._set_cache_valid(False, 'timebase_window_range')
         
     def _get_timebase_scale(self):
         if not self._driver_operation_simulate and not self._get_cache_valid():
@@ -685,6 +703,8 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
         self._timebase_range = value * self._horizontal_divisions
         self._set_cache_valid()
         self._set_cache_valid(True, 'timebase_range')
+        self._set_cache_valid(False, 'timebase_window_scale')
+        self._set_cache_valid(False, 'timebase_window_range')
         
     def _get_timebase_window_position(self):
         if not self._driver_operation_simulate and not self._get_cache_valid():
@@ -764,18 +784,11 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
             self._write(":cdisplay")
     
     def _get_acquisition_start_time(self):
-        if not self._driver_operation_simulate and not self._get_cache_valid():
-            self._acquisition_start_time = float(self._ask(":waveform:xorigin?"))
-            self._set_cache_valid()
-        return self._acquisition_start_time
+        return self._get_timebase_position() - self._get_acquisition_time_per_record() / 2
     
     def _set_acquisition_start_time(self, value):
         value = float(value)
-        value = value + self._get_acquisition_time_per_record() * 5 / 10
-        if not self._driver_operation_simulate:
-            self._write(":timebase:position %e" % value)
-        self._acquisition_start_time = value
-        self._set_cache_valid()
+        self._set_timebase_position(value + self._get_acquisition_time_per_record() / 2)
     
     def _get_acquisition_type(self):
         if not self._driver_operation_simulate and not self._get_cache_valid():
@@ -806,18 +819,11 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
         return self._acquisition_record_length
     
     def _get_acquisition_time_per_record(self):
-        if not self._driver_operation_simulate and not self._get_cache_valid():
-            self._acquisition_time_per_record = float(self._ask(":timebase:range?"))
-            self._set_cache_valid()
-        return self._acquisition_time_per_record
+        return self._get_timebase_range()
     
     def _set_acquisition_time_per_record(self, value):
         value = float(value)
-        if not self._driver_operation_simulate:
-            self._write(":timebase:range %e" % value)
-        self._acquisition_time_per_record = value
-        self._set_cache_valid()
-        self._set_cache_valid(False, 'acquisition_start_time')
+        self._set_timebase_range(value)
     
     def _get_channel_label(self, index):
         index = ivi.get_index(self._channel_name, index)
@@ -899,6 +905,11 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
             self._write(":%s:probe %e" % (self._channel_name[index], value))
         self._channel_probe_attenuation[index] = value
         self._set_cache_valid(index=index)
+        self._set_cache_valid(False, 'channel_offset', index)
+        self._set_cache_valid(False, 'channel_scale', index)
+        self._set_cache_valid(False, 'channel_range', index)
+        self._set_cache_valid(False, 'channel_trigger_level', index)
+        self._set_cache_valid(False, 'trigger_level')
     
     def _get_channel_probe_skew(self, index):
         index = ivi.get_index(self._analog_channel_name, index)
@@ -1001,6 +1012,7 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
         self._channel_scale[index] = value / self._vertical_divisions
         self._set_cache_valid(index=index)
         self._set_cache_valid(True, "channel_scale", index)
+        self._set_cache_valid(False, "channel_offset", index)
     
     def _get_channel_scale(self, index):
         index = ivi.get_index(self._channel_name, index)
@@ -1020,7 +1032,24 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
         self._channel_range[index] = value * self._vertical_divisions
         self._set_cache_valid(index=index)
         self._set_cache_valid(True, "channel_range", index)
+        self._set_cache_valid(False, "channel_offset", index)
     
+    def _get_channel_trigger_level(self, index):
+        index = ivi.get_index(self._channel_name, index)
+        if not self._driver_operation_simulate and not self._get_cache_valid(index=index):
+            self._channel_trigger_level[index] = float(self._ask(":trigger:level? %s" % self._channel_name[index]))
+            self._set_cache_valid(index=index)
+        return self._channel_trigger_level[index]
+
+    def _set_channel_trigger_level(self, index, value):
+        index = ivi.get_index(self._channel_name, index)
+        value = float(value)
+        if not self._driver_operation_simulate:
+            self._write(":trigger:level %e, %s" % (value, self._channel_name[index]))
+        self._channel_trigger_level[index] = value
+        self._set_cache_valid(index=index)
+        self._set_cache_valid(False, "trigger_level")
+
     def _get_measurement_status(self):
         return self._measurement_status
     
@@ -1070,6 +1099,7 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
             self._write(":trigger:level %e" % value)
         self._trigger_level = value
         self._set_cache_valid()
+        for i in range(self._analog_channel_count): self._set_cache_valid(False, 'channel_trigger_level', i)
     
     def _get_trigger_edge_slope(self):
         if not self._driver_operation_simulate and not self._get_cache_valid():
@@ -1095,6 +1125,8 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
         return self._trigger_source
     
     def _set_trigger_source(self, value):
+        if hasattr(value, 'name'):
+            value = value.name
         value = str(value)
         if value not in self._channel_name:
             raise ivi.UnknownPhysicalNameException()
@@ -1112,7 +1144,7 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
                     value = 'ac_line'
             elif value == 'glit':
                 qual = self._ask(":trigger:glitch:qualifier?").lower()
-                if qual == 'rang':
+                if qual in WidthConditionMapping.values():
                     value = 'width'
                 else:
                     value = 'glitch'
@@ -1130,10 +1162,9 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
             if value == 'ac_line':
                 self._write(":trigger:source line")
             if value == 'glitch':
-                if self._trigger_glitch_condition == 'greater_than':
-                    self._write(":trigger:glitch:qualifier greaterthan")
-                else:
-                    self._write(":trigger:glitch:qualifier lessthan")
+                qual = self._ask(":trigger:glitch:qualifier?").lower()
+                if qual not in GlitchConditionMapping.values():
+                    self._write(":trigger:glitch:qualifier %s" % GlitchConditionMapping[self._trigger_glitch_condition])
             if value == 'width':
                 self._write(":trigger:glitch:qualifier range")
         self._trigger_type = value
@@ -1151,7 +1182,7 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
         return self._trigger_tv_trigger_event
     
     def _set_trigger_tv_trigger_event(self, value):
-        if value not in TVTriggerEvent:
+        if value not in TVTriggerEventMapping:
             raise ivi.ValueNotSupportedException()
         # may need processing
         if not self._driver_operation_simulate:
@@ -1289,7 +1320,7 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
         return self._trigger_width_polarity
     
     def _set_trigger_width_polarity(self, value):
-        if value not in Polarity:
+        if value not in PolarityMapping:
             raise ivi.ValueNotSupportedException()
         if not self._driver_operation_simulate:
             self._write(":trigger:glitch:polarity %s" % PolarityMapping[value])
@@ -1304,59 +1335,49 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
     
     def _measurement_fetch_waveform(self, index):
         index = ivi.get_index(self._channel_name, index)
-        
+
         if self._driver_operation_simulate:
-            return list()
-        
-        self._write(":waveform:byteorder msbfirst")
+            return ivi.TraceYT()
+
+        self._write(":waveform:source %s" % self._channel_name[index])
+        if sys.byteorder == 'little':
+            self._write(":waveform:byteorder lsbfirst")
+        else:
+            self._write(":waveform:byteorder msbfirst")
         self._write(":waveform:unsigned 1")
         self._write(":waveform:format word")
-        self._write(":waveform:points normal")
-        self._write(":waveform:source %s" % self._channel_name[index])
-        
+
+        trace = ivi.TraceYT()
+
         # Read preamble
-        
         pre = self._ask(":waveform:preamble?").split(',')
-        
-        format = int(pre[0])
-        type = int(pre[1])
+
+        acq_format = int(pre[0])
+        acq_type = int(pre[1])
         points = int(pre[2])
-        count = int(pre[3])
-        xincrement = float(pre[4])
-        xorigin = float(pre[5])
-        xreference = int(float(pre[6]))
-        yincrement = float(pre[7])
-        yorigin = float(pre[8])
-        yreference = int(float(pre[9]))
-        
-        if type == 1:
+        trace.average_count = int(pre[3])
+        trace.x_increment = float(pre[4])
+        trace.x_origin = float(pre[5])
+        trace.x_reference = int(float(pre[6]))
+        trace.y_increment = float(pre[7])
+        trace.y_origin = float(pre[8])
+        trace.y_reference = int(float(pre[9]))
+        trace.y_hole = 0
+
+        if acq_type == 1:
             raise scope.InvalidAcquisitionTypeException()
-        
-        if format != 1:
+
+        if acq_format != 1:
             raise UnexpectedResponseException()
-        
-        self._write(":waveform:data?")
-        
+
         # Read waveform data
-        raw_data = raw_data = self._read_ieee_block()
-        
-        # Split out points and convert to time and voltage pairs
-        
-        data = list()
-        for i in range(points):
-            x = ((i - xreference) * xincrement) + xorigin
-            
-            yval = struct.unpack(">H", raw_data[i*2:i*2+2])[0]
-            
-            if yval == 0:
-                # hole value
-                y = float('nan')
-            else:
-                y = ((yval - yreference) * yincrement) + yorigin
-            
-            data.append((x, y))
-        
-        return data
+        raw_data = self._ask_for_ieee_block(":waveform:data?")
+        self._read_raw() # flush buffer
+
+        # Store in trace object
+        trace.y_raw = array.array('H', raw_data[0:points*2])
+
+        return trace
     
     def _measurement_read_waveform(self, index, maximum_time):
         return self._measurement_fetch_waveform(index)
@@ -1367,44 +1388,68 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
             self._write(":digitize")
             self._set_cache_valid(False, 'trigger_continuous')
     
+    def _get_reference_levels(self):
+        if not self._driver_operation_simulate and not self._get_cache_valid():
+            thresh, mode, high, middle, low = self._ask(":measure:define? thresholds").split(',')
+            if mode == 'PERC':
+                self._reference_level_high = float(high)
+                self._reference_level_low = float(low)
+                self._reference_level_middle = float(middle)
+                self._set_cache_valid()
+                self._set_cache_valid('reference_level_high')
+                self._set_cache_valid('reference_level_low')
+                self._set_cache_valid('reference_level_middle')
+
     def _get_reference_level_high(self):
+        if not self._driver_operation_simulate and not self._get_cache_valid():
+            self._get_reference_levels()
         return self._reference_level_high
     
     def _set_reference_level_high(self, value):
         value = float(value)
         if value < 5: value = 5
         if value > 95: value = 95
+        if not self._driver_operation_simulate and not self._get_cache_valid():
+            self._get_reference_levels()
         self._reference_level_high = value
         if not self._driver_operation_simulate:
-            self._write(":measure:define thresholds, %e, %e, %e" %
+            self._write(":measure:define thresholds, percent, %e, %e, %e" %
                         (self._reference_level_high,
                         self._reference_level_middle,
                         self._reference_level_low))
     
     def _get_reference_level_low(self):
+        if not self._driver_operation_simulate and not self._get_cache_valid():
+            self._get_reference_levels()
         return self._reference_level_low
     
     def _set_reference_level_low(self, value):
         value = float(value)
         if value < 5: value = 5
         if value > 95: value = 95
+        if not self._driver_operation_simulate and not self._get_cache_valid():
+            self._get_reference_levels()
         self._reference_level_low = value
         if not self._driver_operation_simulate:
-            self._write(":measure:define thresholds, %e, %e, %e" %
+            self._write(":measure:define thresholds, percent, %e, %e, %e" %
                         (self._reference_level_high,
                         self._reference_level_middle,
                         self._reference_level_low))
     
     def _get_reference_level_middle(self):
+        if not self._driver_operation_simulate and not self._get_cache_valid():
+            self._get_reference_levels()
         return self._reference_level_middle
     
     def _set_reference_level_middle(self, value):
         value = float(value)
         if value < 5: value = 5
         if value > 95: value = 95
+        if not self._driver_operation_simulate and not self._get_cache_valid():
+            self._get_reference_levels()
         self._reference_level_middle = value
         if not self._driver_operation_simulate:
-            self._write(":measure:define thresholds, %e, %e, %e" %
+            self._write(":measure:define thresholds, percent, %e, %e, %e" %
                         (self._reference_level_high,
                         self._reference_level_middle,
                         self._reference_level_low))
@@ -1427,6 +1472,8 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
             func = ' '.join(l)
             query = ":measure:%s %s" % (func, self._channel_name[index])
             if measurement_function in ['ratio', 'phase', 'delay']:
+                if hasattr(ref_channel, 'name'):
+                    ref_channel = ref_channel.name
                 ref_index = ivi.get_index(self._channel_name, ref_channel)
                 query += ", %s" % self._channel_name[ref_index]
             return float(self._ask(query))
@@ -1493,6 +1540,21 @@ class agilentBaseScope(scpi.common.IdnCommand, scpi.common.ErrorQuery, scpi.comm
         self._acquisition_sample_mode = value
         self._set_cache_valid()
     
+    def _get_trigger_modifier(self):
+        if not self._driver_operation_simulate and not self._get_cache_valid():
+            value = self._ask(":trigger:sweep?").lower()
+            self._trigger_modifier = [k for k,v in TriggerModifierMapping.items() if v==value][0]
+            self._set_cache_valid()
+        return self._trigger_modifier
+
+    def _set_trigger_modifier(self, value):
+        if value not in TriggerModifierMapping:
+            raise ivi.ValueNotSupportedException()
+        if not self._driver_operation_simulate:
+            self._write(":trigger:sweep %s" % TriggerModifierMapping[value])
+        self._trigger_modifier = value
+        self._set_cache_valid()
+
     def _measurement_auto_setup(self):
         if not self._driver_operation_simulate:
             self._write(":autoscale")

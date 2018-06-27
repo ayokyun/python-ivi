@@ -2,7 +2,7 @@
 
 Python Interchangeable Virtual Instrument Library
 
-Copyright (c) 2012-2014 Alex Forencich
+Copyright (c) 2012-2017 Alex Forencich
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -37,7 +37,7 @@ class IdnCommand(extra.common.SerialNumber):
         if self._driver_operation_simulate:
             self._identity_instrument_manufacturer = "Not available while simulating"
             self._identity_instrument_model = "Not available while simulating"
-            self._identity_instrument_serial = "Not available while simulating"
+            self._identity_instrument_serial_number = "Not available while simulating"
             self._identity_instrument_firmware_revision = "Not available while simulating"
         else:
             lst = self._ask("*IDN?").split(",")
@@ -78,7 +78,7 @@ class ErrorQuery(object):
         error_code = 0
         error_message = "No error"
         if not self._driver_operation_simulate:
-            error_code, error_message = self._ask(":system:error?").split(',')
+            error_code, error_message = self._ask("system:error?").split(',')
             error_code = int(error_code)
             error_message = error_message.strip(' "')
         return (error_code, error_message)

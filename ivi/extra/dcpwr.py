@@ -2,7 +2,7 @@
 
 Python Interchangeable Virtual Instrument Library
 
-Copyright (c) 2014 Alex Forencich
+Copyright (c) 2014-2017 Alex Forencich
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -107,6 +107,8 @@ class OCP(ivi.IviContainer):
     def _set_output_ocp_limit(self, index, value):
         index = ivi.get_index(self._output_name, index)
         value = float(value)
+        if value < 0 or value > self._output_spec[index]['ocp_max']:
+            raise ivi.OutOfRangeException()
         self._output_ocp_limit[index] = value
     
     def _output_reset_output_protection(self, index):
