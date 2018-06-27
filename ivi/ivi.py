@@ -507,9 +507,6 @@ class Doc(object):
         return self.doc
 
 
-<<<<<<< HEAD
-def add_attribute(obj, name, attr, doc=None):
-=======
 class TraceY(object):
     "Y trace object"
     def __init__(self):
@@ -571,7 +568,6 @@ class TraceYT(TraceY):
 
 
 def add_attribute(obj, name, attr, doc = None):
->>>>>>> cfa45ceade0758debe4bc24ba4c8195222cad1e2
     IviContainer._add_attribute(obj, name, attr, doc)
 
 
