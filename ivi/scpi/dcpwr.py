@@ -55,12 +55,12 @@ class Base(common.IdnCommand, common.ErrorQuery, common.Reset, common.SelfTest,
         self._output_spec = [
             {
                 'range': {
-                    'P8V': (9.0, 20.0),
-                    'P20V': (21.0, 10.0)
+                    'P36V': (36.0, 6.0),
+                    'P36V': (36.0, 6.0)
                 },
-                'ovp_max': 60.0,
-                'voltage_max': 60.0,
-                'current_max': 14.0
+                'ovp_max': 40.0,
+                'voltage_max': 36.0,
+                'current_max': 6.0
             }
         ]
 
@@ -86,8 +86,10 @@ class Base(common.IdnCommand, common.ErrorQuery, common.Reset, common.SelfTest,
             return
 
         # interface clear
+        '''
         if not self._driver_operation_simulate:
             self._clear()
+        '''
 
         # check ID
         if id_query and not self._driver_operation_simulate:

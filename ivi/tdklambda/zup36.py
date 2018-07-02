@@ -106,15 +106,3 @@ class ZUP36(ivi.Driver, dcpwr.Base, dcpwr.Measurement):
 
         self._write(':OVP{0};'.format(value), encoding='ascii')
         sleep(1)
-
-
-def _main():
-    psu = ZUP36('ASRL::COM45,9600,8n1::INSTR')
-    # psu._set_driver_operation_simulate(True)  # 테스트 용도로만
-    psu.outputs[0].voltage_level = 5.0
-    print psu.outputs[0].voltage_level
-
-    psu.close()
-
-if __name__ == '__main__':
-    _main()
