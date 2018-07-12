@@ -69,7 +69,8 @@ class Z36(Base):
 
         self._init_outputs()
 
-        self._interface.term_char = '\n'
+        if self._interface: 
+            self._interface.term_char = '\n'
 
     def _initialize(self, resource=None, id_query=False, reset=False, **keywargs):
         """Opens an I/O session to the instrument."""
