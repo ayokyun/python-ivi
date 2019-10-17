@@ -1,9 +1,9 @@
 # -*- coding: utf8 -*-
 
-from ..scpi.dcpwr import Base
+from ..scpi.dcpwr import Base, Measurement
 
 
-class Z36(Base):
+class Z36(Base, Measurement):
     def __init__(self, *args, **kwargs):
         self.__dict__.setdefault('_instrument_id', '')
 
