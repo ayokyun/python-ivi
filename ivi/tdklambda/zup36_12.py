@@ -16,12 +16,12 @@ class ZUP36(ivi.Driver, dcpwr.Base, dcpwr.Measurement):
         self._output_spec = [
                                 {
                                     'range': {
-                                        'P36V': (36.0, 6.0),
-                                        'P36V': (36.0, 6.0)
+                                        'P36V': (36.0, 12.0),
+                                        'P36V': (36.0, 12.0)
                                     },
                                     'ovp_max': 36.0,
                                     'voltage_max': 36.0,
-                                    'current_max': 6.0
+                                    'current_max': 12.0
                                 }
                             ] * self._output_count
 
