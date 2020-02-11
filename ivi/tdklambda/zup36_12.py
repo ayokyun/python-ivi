@@ -60,7 +60,7 @@ class ZUP36(ivi.Driver, dcpwr.Base, dcpwr.Measurement):
             raise ivi.OutOfRangeException()
 
         self._select_address(index)
-        self._write(':CUR{0};'.format(value), encoding='ascii')
+        self._write(':CUR%05.2f;' % (value), encoding='ascii')
 
     def _get_output_enabled(self, index):
         index = ivi.get_index(self._output_name, index)

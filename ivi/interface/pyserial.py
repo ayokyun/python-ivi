@@ -139,7 +139,7 @@ class SerialInstrument:
         "Write binary data to instrument"
 
         if self.term_char is not None:
-            data += str(self.term_char).encode('utf-8')[0:1]
+            data += str(self.term_char).encode('utf-8')
 
         self.serial.write(data)
 
@@ -152,15 +152,14 @@ class SerialInstrument:
 
     def read_raw(self, num=-1):
         "Read binary data from instrument"
-
         data = b''
-        term_char = str(self.term_char).encode('utf-8')[0:1]
+        term_char = str(self.term_char).encode('utf-8')
 
         while True:
             c = self.serial.read(1)
             data += c
             num -= 1
-            if c == term_char:
+            if data[-len(term_char):] == term_char:
                 break
             if num == 0:
                 break
